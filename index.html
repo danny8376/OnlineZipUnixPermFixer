@@ -246,7 +246,8 @@
             const root = new TreeNode(file.name, { forceParent: true, icon: "🗐" });
             root.on("click", selectZip);
 
-            function newNode(val) { return Object.assign({ name: "", tree: null, zip: null, dom: null, unixPerm: 0, oriUnixPerm: 0, oriNonUnix: 1, presetUnixPerm: null }, val); }
+            function newNode(val) { return Object.assign({ name: "", tree: null, zip: null, dom: null, unixPerm: 0x1ed, oriUnixPerm: 0x1ed, oriNonUnix: 1, presetUnixPerm: null }, val); }
+
             function populateFolder(path) {
               const { folders, nodes } = tree;
               function newObj(name) { return { name, folders: [], files: [] }; }
@@ -293,7 +294,7 @@
 
               const { nodes } = tree;
               const oriNonUnix = file.unixPermissions === null;
-              const unixPerm = oriNonUnix ? (file.dir ? 0x1fd : 0x1b4) : file.unixPermissions & 0b111111111;
+              const unixPerm = oriNonUnix ? (file.dir ? 0x1ed : 0x1a4) : file.unixPermissions & 0b111111111;
               if (folderName !== path) { // file
                 folder.files.push(fileName);
                 nodes[path] = newNode({ name: fileName, path, zip: file, unixPerm, oriUnixPerm: unixPerm, oriNonUnix });
