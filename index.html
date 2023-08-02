@@ -552,6 +552,13 @@
       // rule: { path/name: "<REGEX>", type: "file/dir", set: <perm>, add: <perm>, remove: <perm> }
       // priority, set only if set, otherwise, remove then add
       function applyAutoPerm(rules) {
+        function parsePerm(perm) {
+          if (perm === undefined || perm === null) return;
+          if (typeof perm === "string") perm = parseInt(perm, 8);
+          if (!Number.isInteger(perm)) return;
+          return perm;
+        }
+
         const reset = !autoPermNoResetDom.checked;
         const apply = !autoPermNoApplyDom.checked;
         if (!Array.isArray(rules)) rules = [];
@@ -561,6 +568,9 @@
           node.autoUnixPermMask = null;
           if (reset) node.unixPerm = node.oriUnixPerm;
           rules.forEach(({ path: pathRegex, name: nameRegex, type, set, add, remove }) => {
+            set = parsePerm(set);
+            add = parsePerm(add);
+            remove = parsePerm(remove);
             const pathMatch = pathRegex && (new RegExp(pathRegex).test(node.path));
             const nameMatch = nameRegex && (new RegExp(nameRegex).test(node.name));
             const typeMatch = !type || (node.path.endsWith("/") == (type === "dir"));
