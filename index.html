@@ -195,7 +195,7 @@
         name: "",
         root: null,
         folders: {},    // folderName => (folderObj) { name, folders: [folderObj, ...], files: [fileName, ...] }
-        nodes: {}       // fileName : { name, path, tree, zip, dom, unixPerm, oriUnixPerm, oriNonUnix, presetUnixPerm }
+        nodes: {}       // fileName : { name, path, tree, zip, dom, unixPerm, oriUnixPerm, oriNonUnix, autoUnixPerm }
       };
       window.tree = tree;
 
@@ -221,23 +221,37 @@
         dlBtn.disabled = !modified && !nonUnixFile;
       }
 
-      window.handleUnixPermCtl = (e) => {
-        const dom = e.target;
+      function parsePermCtlDom(dom, parent) {
+        parent = parent || dom.parentElement;
         const ownershipIdx = ["o", "g", "u"].indexOf(dom.getAttribute("data-ownership"));
         const perm = dom.getAttribute("data-perm");
         const permIdx = ["x", "w", "r"].indexOf(perm);
         const bitPos = ownershipIdx * 3 + permIdx;
         const bitMask = 1 << bitPos;
-        const path = dom.parentElement.getAttribute("data-path");
+        const path = parent.getAttribute("data-path");
         const node = tree.nodes[path];
+        return { perm, bitMask, path, node };
+      }
+
+      function updatePermCtl(dom, parent) {
+        const { perm, bitMask, node } = parsePermCtlDom(dom, parent);
         if (node) {
-          node.unixPerm ^= bitMask;
+          if (node.oriNonUnix) dom.classList.add("non-unix");
           dom.value = node.unixPerm & bitMask ? perm : "-";
           if ((node.unixPerm ^ node.oriUnixPerm) & bitMask) {
             dom.classList.add("modified");
           } else {
             dom.classList.remove("modified");
           }
+        }
+      }
+
+      window.handleUnixPermCtl = (e) => {
+        const dom = e.target;
+        const { bitMask, node } = parsePermCtlDom(dom);
+        if (node) {
+          node.unixPerm ^= bitMask;
+          updatePermCtl(dom);
           updateDownloadBtn();
         }
 
@@ -261,7 +275,7 @@
             const root = new TreeNode(file.name, { forceParent: true, icon: "🗐" });
             root.on("click", selectZip);
 
-            function newNode(val) { return Object.assign({ name: "", tree: null, zip: null, dom: null, unixPerm: 0x1ed, oriUnixPerm: 0x1ed, oriNonUnix: 1, presetUnixPerm: null }, val); }
+            function newNode(val) { return Object.assign({ name: "", tree: null, zip: null, dom: null, unixPerm: 0x1ed, oriUnixPerm: 0x1ed, oriNonUnix: 1, autoUnixPerm: null }, val); }
 
             function populateFolder(path) {
               const { folders, nodes } = tree;
@@ -335,18 +349,13 @@
                     if (createFolders || (node && node.zip)) {
                       ["u", "g", "o"].forEach((ownership, oIdx) => {
                         ["r", "w", "x"].forEach((perm, pIdx) => {
-                          const bitPos = (2 - oIdx) * 3 + (2 - pIdx);
-                          const bitMask = 1 << bitPos;
                           const permCtl = document.createElement("input");
-                          if (node) {
-                            permCtl.value = node.unixPerm & bitMask ? perm : "-";
-                            if (node.oriNonUnix) permCtl.classList.add("non-unix");
-                          }
                           permCtl.classList.add("perm-btn");
                           permCtl.setAttribute("type", "button");
                           permCtl.setAttribute("data-ownership", ownership);
                           permCtl.setAttribute("data-perm", perm);
                           permCtl.setAttribute("onclick", "handleUnixPermCtl(event)");
+                          updatePermCtl(permCtl, span);
                           span.appendChild(permCtl);
                         });
                       });
