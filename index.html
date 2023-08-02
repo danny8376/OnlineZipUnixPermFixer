@@ -82,6 +82,22 @@
       background-color: #0f0fff;
     }
 
+    .perm-btn.auto-fixed {
+      background-color: #0f7f0f;
+    }
+
+    .perm-btn.auto-fixed:hover {
+      background-color: #0fcf0f;
+    }
+
+    .perm-btn.auto-diff {
+      background-color: #cf0f0f;
+    }
+
+    .perm-btn.auto-diff:hover {
+      background-color: #ff0f0f;
+    }
+
     .hidden {
       display: none;
     }
@@ -90,11 +106,30 @@
       height: 1em;
     }
 
-    .adv-opts {
+    .opts {
       width: 30%;
       min-width: 400px;
       max-width: 800px;
       margin: 0 auto;
+    }
+
+    .auto-perm-div {
+      text-align: center;
+    }
+
+    #auto-perm-open {
+      cursor: default;
+      user-select: none;
+    }
+
+    #auto-perm {
+      width: 100%;
+      height: 10em;
+      background-color: #131516;
+      color: #ccc;
+    }
+
+    .adv-opts {
       text-align: left;
     }
 
@@ -182,9 +217,20 @@
     <input type="file" id="zip" class="hidden">
     <input type="button" id="download" value="Download Modified ZIP" disabled>
     <div class="spacer"></div>
+    <div class="auto-perm-div opts">
+      <span id="auto-perm-open"><span class="icon"></span>Auto perm fixing config</span>
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      <input type="button" id="auto-perm-clear" value="Clear">
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      <span>Preset: <select id="auto-perm-preset"><option value="--NONE--">Select one</option></select></span><br>
+      <textarea id="auto-perm" class="hidden"></textarea>
+    </div>
+    <div class="spacer"></div>
     <div id="container"></div>
-    <div class="adv-opts">
-      <input type="checkbox" id="no-create-folders"><label for="no-create-folders">Don't add folder entry that doesn't exist in original zip</label>
+    <div class="adv-opts opts">
+      <input type="checkbox" id="no-create-folders"><label for="no-create-folders">Don't add folder entry that doesn't exist in original zip</label><br>
+      <input type="checkbox" id="auto-perm-no-reset"><label for="auto-perm-no-reset">Don't reset permissions when auto perm config changed</label><br>
+      <input type="checkbox" id="auto-perm-no-apply"><label for="auto-perm-no-apply">Don't apply auto perm config automatically</label>
     </div>
   </main>
 
@@ -195,13 +241,19 @@
         name: "",
         root: null,
         folders: {},    // folderName => (folderObj) { name, folders: [folderObj, ...], files: [fileName, ...] }
-        nodes: {}       // fileName : { name, path, tree, zip, dom, unixPerm, oriUnixPerm, oriNonUnix, autoUnixPerm }
+        nodes: {}       // fileName : { name, path, tree, zip, dom, unixPerm, oriUnixPerm, oriNonUnix, autoUnixPerm, autoUnixPermMask }
       };
       window.tree = tree;
 
       const zipDom = document.querySelector("#zip");
       const dlDom = document.querySelector("#download");
+      const autoPermOpenDom = document.querySelector("#auto-perm-open");
+      const autoPermClearDom = document.querySelector("#auto-perm-clear");
+      const autoPermPresetDom = document.querySelector("#auto-perm-preset");
+      const autoPermDom = document.querySelector("#auto-perm");
       const noCreateFoldersDom = document.querySelector("#no-create-folders");
+      const autoPermNoResetDom = document.querySelector("#auto-perm-no-reset");
+      const autoPermNoApplyDom = document.querySelector("#auto-perm-no-apply");
 
       const root = new TreeNode("Select a ZIP file or drag one over...", { forceParent: true, icon: "🗐", expanded: false });
       const view = new TreeView(root, "#container");
@@ -236,12 +288,26 @@
       function updatePermCtl(dom, parent) {
         const { perm, bitMask, node } = parsePermCtlDom(dom, parent);
         if (node) {
-          if (node.oriNonUnix) dom.classList.add("non-unix");
-          dom.value = node.unixPerm & bitMask ? perm : "-";
-          if ((node.unixPerm ^ node.oriUnixPerm) & bitMask) {
+          const { oriNonUnix, unixPerm, oriUnixPerm, autoUnixPerm, autoUnixPermMask } = node;
+          if (oriNonUnix) dom.classList.add("non-unix");
+          dom.value = unixPerm & bitMask ? perm : "-";
+          dom.classList.remove("modified");
+          dom.classList.remove("auto-fixed");
+          dom.classList.remove("auto-diff");
+          if (autoUnixPerm !== null) {
+            if (~(unixPerm ^ autoUnixPerm) & bitMask) {
+              if (autoUnixPermMask & bitMask) {
+                dom.classList.add("auto-fixed");
+              }
+            } else {
+              if (autoUnixPermMask & bitMask) {
+                dom.classList.add("auto-diff");
+              } else if ((unixPerm ^ oriUnixPerm) & bitMask) {
+                dom.classList.add("modified");
+              }
+            }
+          } else if ((unixPerm ^ oriUnixPerm) & bitMask) {
             dom.classList.add("modified");
-          } else {
-            dom.classList.remove("modified");
           }
         }
       }
@@ -275,7 +341,7 @@
             const root = new TreeNode(file.name, { forceParent: true, icon: "🗐" });
             root.on("click", selectZip);
 
-            function newNode(val) { return Object.assign({ name: "", tree: null, zip: null, dom: null, unixPerm: 0x1ed, oriUnixPerm: 0x1ed, oriNonUnix: 1, autoUnixPerm: null }, val); }
+            function newNode(val) { return Object.assign({ name: "", tree: null, zip: null, dom: null, unixPerm: 0x1ed, oriUnixPerm: 0x1ed, oriNonUnix: 1, autoUnixPerm: null, autoUnixPermMask: null }, val); }
 
             function populateFolder(path) {
               const { folders, nodes } = tree;
@@ -388,6 +454,7 @@
             view.reload();
 
             updateDownloadBtn();
+            if (autoPermDom.value.length) parseAndApplyAutoPerm();
           });
         };
         reader.readAsArrayBuffer(file);
@@ -457,6 +524,83 @@
             document.body.removeChild(a);
           });
         });
+      });
+
+      function updateAutoPermOpenIcon() {
+        const iconDom = autoPermOpenDom.querySelector(".icon");
+        if (autoPermDom.classList.contains("hidden"))
+          iconDom.innerText = "▶";
+        else
+          iconDom.innerText = "◢";
+      }
+
+      updateAutoPermOpenIcon();
+      autoPermOpenDom.addEventListener("click", () => {
+        autoPermDom.classList.toggle("hidden");
+        updateAutoPermOpenIcon();
+      });
+
+      // rule: { path/name: "<REGEX>", type: "file/dir", set: <perm>, add: <perm>, remove: <perm> }
+      // priority, set only if set, otherwise, remove then add
+      function applyAutoPerm(rules) {
+        const reset = !autoPermNoResetDom.checked;
+        const apply = !autoPermNoApplyDom.checked;
+        if (!Array.isArray(rules)) rules = [];
+
+        Object.values(tree.nodes).forEach((node) => {
+          node.autoUnixPerm = null;
+          node.autoUnixPermMask = null;
+          if (reset) node.unixPerm = node.oriUnixPerm;
+          rules.forEach(({ path: pathRegex, name: nameRegex, type, set, add, remove }) => {
+            const pathMatch = pathRegex && (new RegExp(pathRegex).test(node.path));
+            const nameMatch = nameRegex && (new RegExp(nameRegex).test(node.name));
+            const typeMatch = !type || (node.path.endsWith("/") == (type === "dir"));
+            if (typeMatch && (pathMatch || nameMatch)) {
+              if (set !== undefined) {
+                node.autoUnixPerm = set;
+                node.autoUnixPermMask = 0b111111111;
+              } else {
+                let perm = node.oriUnixPerm;
+                node.autoUnixPermMask = 0;
+                if (remove !== undefined) {
+                  perm &= ~remove;
+                  node.autoUnixPermMask |= remove;
+                }
+                if (add !== undefined) {
+                  perm |= add;
+                  node.autoUnixPermMask |= add;
+                }
+                node.autoUnixPerm = perm;
+              }
+              if (apply) node.unixPerm = node.autoUnixPerm;
+            }
+          });
+        });
+
+        view.reload();
+        updateDownloadBtn();
+      }
+
+      function parseAndApplyAutoPerm() {
+        const val = autoPermDom.value;
+        if (val) {
+          try {
+            applyAutoPerm(JSON.parse(val));
+          } catch (e) {
+            // ignore
+          }
+        } else {
+          applyAutoPerm();
+        }
+      }
+
+      autoPermDom.addEventListener("change", parseAndApplyAutoPerm);
+      //if (autoPermDom.value.length) parseAndApplyAutoPerm();
+
+      autoPermClearDom.addEventListener("click", () => {
+        autoPermPresetDom.value = "--NONE--";
+        autoPermDom.value = "";
+        applyAutoPerm();
       });
 
       noCreateFoldersDom.addEventListener("change", () => {
