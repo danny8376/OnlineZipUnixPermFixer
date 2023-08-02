@@ -19,6 +19,7 @@
 			margin: 0;
 			font-family: sans-serif;
       background-color: #131516;
+      color: #ccc;
 		}
 
 		header h1{
@@ -49,10 +50,6 @@
 			margin-bottom: 1em;
 			text-align: left;
 		}
-
-    .spacer {
-      height: 1em;
-    }
 
     .perm-btn {
       width: 1em;
@@ -87,6 +84,18 @@
 
     .hidden {
       display: none;
+    }
+
+    .spacer {
+      height: 1em;
+    }
+
+    .adv-opts {
+			width: 30%;
+      min-width: 400px;
+      max-width: 800px;
+			margin: 0 auto;
+			text-align: left;
     }
 
 
@@ -174,6 +183,9 @@
     <input type="button" id="download" value="Download Modified ZIP" disabled>
     <div class="spacer"></div>
 		<div id="container"></div>
+    <div class="adv-opts">
+      <input type="checkbox" id="no-create-folders"><label for="no-create-folders">Don't add folder entry that doesn't exist in original zip</label>
+    </div>
 	</main>
 
 	<script>
@@ -189,6 +201,7 @@
 
       const zipDom = document.querySelector("#zip");
       const dlDom = document.querySelector("#download");
+      const noCreateFoldersDom = document.querySelector("#no-create-folders");
 
       const root = new TreeNode("Select a ZIP file or drag one over...", { forceParent: true, icon: "🗐", expanded: false });
       const view = new TreeView(root, "#container");
@@ -314,27 +327,30 @@
               function newNode(name, path, opts) {
                 const label = {
                   toString() {
+                    const createFolders = !noCreateFoldersDom.checked;
+                    const node = tree.nodes[path];
                     const span = document.createElement("span");
                     span.setAttribute("data-path", path);
                     span.classList.add("unix-perm-ctl");
-                    ["u", "g", "o"].forEach((ownership, oIdx) => {
-                      ["r", "w", "x"].forEach((perm, pIdx) => {
-                        const bitPos = (2 - oIdx) * 3 + (2 - pIdx);
-                        const bitMask = 1 << bitPos;
-                        const permCtl = document.createElement("input");
-                        const node = tree.nodes[path];
-                        if (node) {
-                          permCtl.value = node.unixPerm & bitMask ? perm : "-";
-                          if (node.oriNonUnix) permCtl.classList.add("non-unix");
-                        }
-                        permCtl.classList.add("perm-btn");
-                        permCtl.setAttribute("type", "button");
-                        permCtl.setAttribute("data-ownership", ownership);
-                        permCtl.setAttribute("data-perm", perm);
-                        permCtl.setAttribute("onclick", "handleUnixPermCtl(event)");
-                        span.appendChild(permCtl);
+                    if (createFolders || (node && node.zip)) {
+                      ["u", "g", "o"].forEach((ownership, oIdx) => {
+                        ["r", "w", "x"].forEach((perm, pIdx) => {
+                          const bitPos = (2 - oIdx) * 3 + (2 - pIdx);
+                          const bitMask = 1 << bitPos;
+                          const permCtl = document.createElement("input");
+                          if (node) {
+                            permCtl.value = node.unixPerm & bitMask ? perm : "-";
+                            if (node.oriNonUnix) permCtl.classList.add("non-unix");
+                          }
+                          permCtl.classList.add("perm-btn");
+                          permCtl.setAttribute("type", "button");
+                          permCtl.setAttribute("data-ownership", ownership);
+                          permCtl.setAttribute("data-perm", perm);
+                          permCtl.setAttribute("onclick", "handleUnixPermCtl(event)");
+                          span.appendChild(permCtl);
+                        });
                       });
-                    });
+                    }
                     return `${name} ${span.outerHTML}`;
                   }
                 };
@@ -396,14 +412,17 @@
         const { name, root, nodes } = tree;
         const promises = [];
 
+        const createFolders = !noCreateFoldersDom.checked;
+
         function addEntry(path) {
           const { zip: zipObj, unixPerm, oriUnixPerm } = nodes[path];
           const dir = path.endsWith("/");
           const fType = dir ? (1 << 14) : (1 << 15)
           const unixPermissions = unixPerm === oriUnixPerm ? 0 : unixPerm | fType;
-          const opts = Object.assign({}, zipObj || {}, { dir, unixPermissions });
+          const opts = Object.assign({}, zipObj || {}, { dir, unixPermissions, createFolders });
           if (dir) {
-            zip.file(path, null, opts);
+            if (createFolders || zipObj)
+              zip.file(path, null, opts);
           } else {
             promises.push(zipObj.async("arraybuffer").then(data => zip.file(path, data, opts)));
           }
@@ -429,6 +448,10 @@
             document.body.removeChild(a);
           });
         });
+      });
+
+      noCreateFoldersDom.addEventListener("change", () => {
+        view.reload();
       });
     })();
 	</script>
