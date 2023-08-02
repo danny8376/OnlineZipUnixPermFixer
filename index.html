@@ -378,6 +378,14 @@
       });
       if (zipDom.files.length) handleFileList(zipDom.files);
 
+      window.addEventListener("dragover", (e) => {
+        e.preventDefault();
+      });
+      window.addEventListener("drop", (e) => {
+        handleFileList(e.dataTransfer.files);
+        e.preventDefault();
+      });
+
       dlDom.addEventListener("click", () => {
         const zip = new JSZip();
         const { name, root, nodes } = tree;
