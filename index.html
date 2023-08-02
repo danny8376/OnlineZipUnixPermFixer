@@ -1,55 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>OnlineZipUnixPermFixer</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OnlineZipUnixPermFixer</title>
 
-	<script src="jszip.min.js"></script>
-	<script src="tree.min.js"></script>
+  <script src="jszip.min.js"></script>
+  <script src="tree.min.js"></script>
 
-	<style media="screen">
-		* {
-			box-sizing: border-box;
-			position: relative;
-		}
+  <style media="screen">
+    * {
+      box-sizing: border-box;
+      position: relative;
+    }
 
-		body {
-			padding: 0;
-			margin: 0;
-			font-family: sans-serif;
+    body {
+      padding: 0;
+      margin: 0;
+      font-family: sans-serif;
       background-color: #131516;
       color: #ccc;
-		}
+    }
 
-		header h1{
-			margin: 1em;
-			display: block;
-			text-align: center;
-			font-size: 3rem;
-			color: #111;
-		}
+    header h1{
+      margin: 1em;
+      display: block;
+      text-align: center;
+      font-size: 3rem;
+      color: #111;
+    }
 
-		header {
-			padding: 5px;
-			margin-bottom: 1em;
+    header {
+      padding: 5px;
+      margin-bottom: 1em;
       background-color: rgba(245, 222, 179, 0.65);
-		}
+    }
 
-		main {
-			margin: 0 1em;
-			text-align: center;
-		}
+    main {
+      margin: 0 1em;
+      text-align: center;
+    }
 
-		#container {
-			width: 50%;
+    #container {
+      width: 50%;
       min-width: 400px;
       max-width: 800px;
-			border: 1px solid #ccc;
-			margin: 0 auto;
-			margin-bottom: 1em;
-			text-align: left;
-		}
+      border: 1px solid #ccc;
+      margin: 0 auto;
+      margin-bottom: 1em;
+      text-align: left;
+    }
 
     .perm-btn {
       width: 1em;
@@ -61,7 +61,7 @@
       display: inline-block;
       white-space: nowrap;
       margin: 0;
-			border: none;
+      border: none;
       background-color: rgba(35, 37, 38, 0.4);
       color: #fff;
     }
@@ -91,104 +91,104 @@
     }
 
     .adv-opts {
-			width: 30%;
+      width: 30%;
       min-width: 400px;
       max-width: 800px;
-			margin: 0 auto;
-			text-align: left;
+      margin: 0 auto;
+      text-align: left;
     }
 
 
     .tj_container * {
-    	position: relative;
-    	box-sizing: border-box;
+      position: relative;
+      box-sizing: border-box;
     }
     
     .tj_container ul {
-    	padding-left: 2em;
-    	list-style-type: none;
+      padding-left: 2em;
+      list-style-type: none;
     }
     
     .tj_container > ul:first-of-type {
-    	padding: 0;
+      padding: 0;
     }
     
     .tj_container li span.tj_description {
-    	cursor: pointer;
-    	padding: 2px 5px;
-    	display: block;
-    	border-radius: 2px;
+      cursor: pointer;
+      padding: 2px 5px;
+      display: block;
+      border-radius: 2px;
     
-    	-webkit-touch-callout: none;
-    	-webkit-user-select: none;
-    	-khtml-user-select: none;
-    	-moz-user-select: none;
-    	-ms-user-select: none;
-    	user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -khtml-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
     
-    	text-align: left;
+      text-align: left;
     }
     
     .tj_container li span.tj_description:hover {
-    	background-color: #ccc;
+      background-color: #ccc;
     }
     
     .tj_container li span.tj_mod_icon, .tj_container li span.tj_icon {
-    	margin-right: 0.5em;
-    	display: inline-block;
+      margin-right: 0.5em;
+      display: inline-block;
     }
     
     .tj_container li span.tj_mod_icon, .tj_container li span.tj_mod_icon * {
-    	width: 1em;
+      width: 1em;
     }
     
     .tj_container li span.tj_description.tj_leaf {
-    	margin-left: 1.5em;
+      margin-left: 1.5em;
     }
     
     .tj_container li {
-    	color: #e5e5e5;
+      color: #e5e5e5;
     }
     
     .tj_container li[disabled=""] {
-    	color: #b5b5b5;
+      color: #b5b5b5;
     }
     
     .tj_container li[disabled=""]:hover span.tj_description {
-    	cursor: default;
-    	background-color: inherit;
+      cursor: default;
+      background-color: inherit;
     }
     
     .tj_container span.tj_description.selected {
-    	background-color: #2b2b2b;
-    	color: #fff;
+      background-color: #2b2b2b;
+      color: #fff;
     }
     
     .tj_container span.tj_description.selected:hover {
-    	background-color: #606060;
+      background-color: #606060;
     }
 
     .tj_container span.unix-perm-ctl {
       float: right;
     }
-	</style>
+  </style>
 </head>
 <body>
-	<header>
-		<h1>OnlineZipUnixPermFixer</h1>
-	</header>
+  <header>
+    <h1>OnlineZipUnixPermFixer</h1>
+  </header>
 
-	<main>
+  <main>
     <input type="file" id="zip" class="hidden">
     <input type="button" id="download" value="Download Modified ZIP" disabled>
     <div class="spacer"></div>
-		<div id="container"></div>
+    <div id="container"></div>
     <div class="adv-opts">
       <input type="checkbox" id="no-create-folders"><label for="no-create-folders">Don't add folder entry that doesn't exist in original zip</label>
     </div>
-	</main>
+  </main>
 
-	<script>
+  <script>
     (() => {
 
       const tree = {
@@ -454,7 +454,7 @@
         view.reload();
       });
     })();
-	</script>
+  </script>
 </body>
 </html>
 
