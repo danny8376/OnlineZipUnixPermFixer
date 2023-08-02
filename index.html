@@ -67,22 +67,26 @@
     }
 
     .perm-btn.non-unix {
-      background-color: rgba(15, 111, 15, 0.3);
+      background-color: rgba(15, 115, 175, 0.3);
     }
 
     .perm-btn:hover {
       background-color: #0f0f0f;
     }
 
-    .perm-btn.modified {
+    .perm-btn.modified.manual {
       background-color: #0f0fcf;
     }
 
-    .perm-btn.modified:hover {
+    .perm-btn.modified.manual:hover {
       background-color: #0f0fff;
     }
 
     .perm-btn.auto-fixed {
+      background-color: #0f4f0f;
+    }
+
+    .perm-btn.modified.auto-fixed {
       background-color: #0f7f0f;
     }
 
@@ -91,6 +95,10 @@
     }
 
     .perm-btn.auto-diff {
+      background-color: #9f0f0f;
+    }
+
+    .perm-btn.modified.auto-diff {
       background-color: #cf0f0f;
     }
 
@@ -300,7 +308,12 @@
           const { oriNonUnix, unixPerm, oriUnixPerm, autoUnixPerm, autoUnixPermMask } = node;
           if (oriNonUnix) dom.classList.add("non-unix");
           dom.value = unixPerm & bitMask ? perm : "-";
-          dom.classList.remove("modified");
+
+          const modified = (unixPerm ^ oriUnixPerm) & bitMask;
+          if (modified) dom.classList.add("modified");
+          else dom.classList.remove("modified");
+
+          dom.classList.remove("manual");
           dom.classList.remove("auto-fixed");
           dom.classList.remove("auto-diff");
           if (autoUnixPerm !== null) {
@@ -311,12 +324,12 @@
             } else {
               if (autoUnixPermMask & bitMask) {
                 dom.classList.add("auto-diff");
-              } else if ((unixPerm ^ oriUnixPerm) & bitMask) {
-                dom.classList.add("modified");
+              } else if (modified) {
+                dom.classList.add("manual");
               }
             }
-          } else if ((unixPerm ^ oriUnixPerm) & bitMask) {
-            dom.classList.add("modified");
+          } else if (modified) {
+            dom.classList.add("manual");
           }
         }
       }
