@@ -107,7 +107,7 @@
     }
 
     .opts {
-      width: 30%;
+      width: 50%;
       min-width: 400px;
       max-width: 800px;
       margin: 0 auto;
@@ -130,6 +130,7 @@
     }
 
     .adv-opts {
+      width: 30%;
       text-align: left;
     }
 
@@ -222,7 +223,7 @@
       &nbsp;&nbsp;&nbsp;&nbsp;
       <input type="button" id="auto-perm-clear" value="Clear">
       &nbsp;&nbsp;&nbsp;&nbsp;
-      <span>Preset: <select id="auto-perm-preset"><option value="--NONE--">Select one</option></select></span><br>
+      <span>Preset: <select id="auto-perm-preset"><option>Loading presets...</option></select></span><br>
       <textarea id="auto-perm" class="hidden"></textarea>
     </div>
     <div class="spacer"></div>
@@ -244,6 +245,14 @@
         nodes: {}       // fileName : { name, path, tree, zip, dom, unixPerm, oriUnixPerm, oriNonUnix, autoUnixPerm, autoUnixPermMask }
       };
       window.tree = tree;
+
+      const presets = {
+        user: null,
+        site: null,
+        all: {}
+      };
+
+      const urlParams = new URLSearchParams(location.search);
 
       const zipDom = document.querySelector("#zip");
       const dlDom = document.querySelector("#download");
@@ -598,10 +607,90 @@
       //if (autoPermDom.value.length) parseAndApplyAutoPerm();
 
       autoPermClearDom.addEventListener("click", () => {
-        autoPermPresetDom.value = "--NONE--";
+        autoPermPresetDom.value = "---NONE---";
         autoPermDom.value = "";
         applyAutoPerm();
       });
+
+      function loadPreset(url) {
+        const type = url ? "user" : "site";
+        url = url || "presets.json";
+        return fetch(url).then(res => res.json()).then(json => {
+          if (Array.isArray(json)) presets[type] = { "From URL": json };
+          else presets[type] = json;
+        });
+      }
+
+      function renderPresetList(type) {
+        function appendPresetGroup(dom, label) {
+          const group = document.createElement("optgroup");
+          group.label = label;
+          dom.appendChild(group);
+          return group;
+        }
+
+        function appendPresetOpt(dom, name, prefix, rules) {
+          if (!Array.isArray(rules)) return;
+          const key = prefix + name;
+          presets.all[key] = rules;
+          const opt = document.createElement("option");
+          opt.value = key;
+          opt.innerText = name;
+          dom.appendChild(opt);
+        }
+
+        function renderPresetGroup(type, groupName, list) {
+          const group = appendPresetGroup(autoPermPresetDom, groupName);
+          Object.entries(list).forEach(([name, rules]) => {
+            appendPresetOpt(group, name, `${type}/group#${groupName}/`, rules);
+          });
+        }
+
+        if (type) {
+          const list = presets[type];
+          const scope = urlParams.get("scope");
+          if (scope && list[scope]) {
+            Object.entries(list[scope]).forEach(([name, rules]) => {
+              appendPresetOpt(autoPermPresetDom, name, `${type}/group#${scope}/`, rules);
+            });
+          } else {
+            Object.entries(list).forEach(([name, val]) => {
+              if (Array.isArray(val)) appendPresetOpt(autoPermPresetDom, name, `${type}/group#---NOTGROUPED---/`, val);
+              else renderPresetGroup(type, name, val);
+            });
+          }
+        } else {
+          while (autoPermPresetDom.firstChild) autoPermPresetDom.removeChild(autoPermPresetDom.firstChild);
+          presets.all = {};
+
+          const optNone = document.createElement("option");
+          optNone.value = "---NONE---";
+          optNone.innerText = "Select one...";
+          autoPermPresetDom.appendChild(optNone);
+          appendPresetGroup(autoPermPresetDom, "------------");
+
+          if (presets.user) {
+            renderPresetList("user");
+            if (presets.site) appendPresetGroup(autoPermPresetDom, "------------");
+          }
+          if (presets.site) renderPresetList("site");
+        }
+      }
+
+      autoPermPresetDom.addEventListener("change", () => {
+        const rules = presets.all[autoPermPresetDom.value];
+        if (rules) {
+          autoPermDom.value = JSON.stringify(rules);
+          applyAutoPerm(rules);
+        }
+      });
+
+      const presetLoading = [];
+      const useSitePresets = !urlParams.has("no-site-preset");
+      if (useSitePresets) presetLoading.push(loadPreset());
+      const extPreset = urlParams.get("ext-preset");
+      if (extPreset) presetLoading.push(loadPreset(extPreset));
+      Promise.all(presetLoading).then(() => renderPresetList());
 
       noCreateFoldersDom.addEventListener("change", () => {
         view.reload();
