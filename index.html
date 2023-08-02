@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>OnlineZipUnixPermFixer</title>
+
+	<script src="jszip.min.js"></script>
+	<script src="tree.min.js"></script>
+
+	<style media="screen">
+		* {
+			box-sizing: border-box;
+			position: relative;
+		}
+
+		body {
+			padding: 0;
+			margin: 0;
+			font-family: sans-serif;
+      background-color: #131516;
+		}
+
+		header h1{
+			margin: 1em;
+			display: block;
+			text-align: center;
+			font-size: 3rem;
+			color: #111;
+		}
+
+		header {
+			padding: 5px;
+			margin-bottom: 1em;
+      background-color: rgba(245, 222, 179, 0.65);
+		}
+
+		main {
+			margin: 0 1em;
+			text-align: center;
+		}
+
+		#container {
+			width: 50%;
+      min-width: 400px;
+      max-width: 800px;
+			border: 1px solid #ccc;
+			margin: 0 auto;
+			margin-bottom: 1em;
+			text-align: left;
+		}
+
+    .spacer {
+      height: 1em;
+    }
+
+    .perm-btn {
+      width: 1em;
+      height: 100%;
+      text-align:center;
+      text-decoration: none;
+      -webkit-font-smoothing: antialiased;
+      padding: 0;
+      display: inline-block;
+      white-space: nowrap;
+      margin: 0;
+			border: none;
+      background-color: rgba(35, 37, 38, 0.4);
+      color: #fff;
+    }
+
+    .perm-btn.non-unix {
+      background-color: rgba(15, 111, 15, 0.3);
+    }
+
+    .perm-btn:hover {
+      background-color: #0f0f0f;
+    }
+
+    .perm-btn.modified {
+      background-color: #0f0fcf;
+    }
+
+    .perm-btn.modified:hover {
+      background-color: #0f0fff;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+
+    .tj_container * {
+    	position: relative;
+    	box-sizing: border-box;
+    }
+    
+    .tj_container ul {
+    	padding-left: 2em;
+    	list-style-type: none;
+    }
+    
+    .tj_container > ul:first-of-type {
+    	padding: 0;
+    }
+    
+    .tj_container li span.tj_description {
+    	cursor: pointer;
+    	padding: 2px 5px;
+    	display: block;
+    	border-radius: 2px;
+    
+    	-webkit-touch-callout: none;
+    	-webkit-user-select: none;
+    	-khtml-user-select: none;
+    	-moz-user-select: none;
+    	-ms-user-select: none;
+    	user-select: none;
+    
+    	text-align: left;
+    }
+    
+    .tj_container li span.tj_description:hover {
+    	background-color: #ccc;
+    }
+    
+    .tj_container li span.tj_mod_icon, .tj_container li span.tj_icon {
+    	margin-right: 0.5em;
+    	display: inline-block;
+    }
+    
+    .tj_container li span.tj_mod_icon, .tj_container li span.tj_mod_icon * {
+    	width: 1em;
+    }
+    
+    .tj_container li span.tj_description.tj_leaf {
+    	margin-left: 1.5em;
+    }
+    
+    .tj_container li {
+    	color: #e5e5e5;
+    }
+    
+    .tj_container li[disabled=""] {
+    	color: #b5b5b5;
+    }
+    
+    .tj_container li[disabled=""]:hover span.tj_description {
+    	cursor: default;
+    	background-color: inherit;
+    }
+    
+    .tj_container span.tj_description.selected {
+    	background-color: #2b2b2b;
+    	color: #fff;
+    }
+    
+    .tj_container span.tj_description.selected:hover {
+    	background-color: #606060;
+    }
+
+    .tj_container span.unix-perm-ctl {
+      float: right;
+    }
+	</style>
+</head>
+<body>
+	<header>
+		<h1>OnlineZipUnixPermFixer</h1>
+	</header>
+
+	<main>
+    <input type="file" id="zip" class="hidden">
+    <input type="button" id="download" value="Download Modified ZIP" disabled>
+    <div class="spacer"></div>
+		<div id="container"></div>
+	</main>
+
+	<script>
+    //(() => {
+
+      const tree = {
+        name: "",
+        root: null,
+        folders: {},    // folderName => (folderObj) { name, folders: [folderObj, ...], files: [fileName, ...] }
+        nodes: {}       // fileName : { name, path, tree, zip, dom, unixPerm, oriUnixPerm, oriNonUnix, presetUnixPerm }
+      };
+      window.tree = tree;
+
+      const zipDom = document.querySelector("#zip");
+      const dlDom = document.querySelector("#download");
+
+      const root = new TreeNode("Select a ZIP file or drag one over...", { forceParent: true, icon: "🗐", expanded: false });
+      const view = new TreeView(root, "#container");
+      function selectZip(e, node) {
+        node.toggleExpanded();
+        view.reload(); // hacky to prevent collapse :P
+        zipDom.click();
+      }
+      root.on("click", selectZip);
+
+
+      function updateDownloadBtn() {
+        const dlBtn = document.querySelector("#download");
+        const modified = document.querySelector("#container .perm-btn.modified");
+        dlBtn.disabled = !modified;
+      }
+
+      window.handleUnixPermCtl = (e) => {
+        const dom = e.target;
+        const ownershipIdx = ["o", "g", "u"].indexOf(dom.getAttribute("data-ownership"));
+        const perm = dom.getAttribute("data-perm");
+        const permIdx = ["x", "w", "r"].indexOf(perm);
+        const bitPos = ownershipIdx * 3 + permIdx;
+        const bitMask = 1 << bitPos;
+        const path = dom.parentElement.getAttribute("data-path");
+        const node = tree.nodes[path];
+        if (node) {
+          node.unixPerm ^= bitMask;
+          dom.value = node.unixPerm & bitMask ? perm : "-";
+          if ((node.unixPerm ^ node.oriUnixPerm) & bitMask) {
+            dom.classList.add("modified");
+          } else {
+            dom.classList.remove("modified");
+          }
+          updateDownloadBtn();
+        }
+
+        e.stopPropagation();
+      }
+
+      function handleZipFile(file) {
+        const root = new TreeNode("Loading", { forceParent: true, icon: "🗘", enabled: false });
+        tree.name = file.name;
+        tree.root = null;
+        tree.folders = {};
+        tree.nodes = {};
+        dlDom.disabled = true;
+        view.setRoot(root);
+        view.reload();
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const zip = new JSZip();
+          zip.loadAsync(e.target.result).then((zip) => {
+            const root = new TreeNode(file.name, { forceParent: true, icon: "🗐" });
+            root.on("click", selectZip);
+
+            function newNode(val) { return Object.assign({ name: "", tree: null, zip: null, dom: null, unixPerm: 0, oriUnixPerm: 0, oriNonUnix: 1, presetUnixPerm: null }, val); }
+            function populateFolder(path) {
+              const { folders, nodes } = tree;
+              function newObj(name) { return { name, folders: [], files: [] }; }
+              const lv = path.split("/").length - 1;
+              let obj;
+              if (!path.length) { // lv0, root
+                obj = tree.root;
+                if (obj === null) {
+                  obj = newObj("");
+                  tree.root = obj;
+                }
+              } else { // normal folder
+                obj = folders[path];
+                if (obj === undefined) {
+                  const fnIdx = path.lastIndexOf("/", path.length - 2) + 1;
+                  const parentName = path.substring(0, fnIdx);
+                  const folderName = path.substring(fnIdx, path.length - 1);
+                  obj = newObj(folderName);
+                  const parent = populateFolder(parentName); // make sure parent is populated
+                  parent.folders.push(obj);
+                  folders[path] = obj;
+                  nodes[path] = newNode({ name: folderName, path });
+                }
+              }
+              return obj;
+            }
+            function sortFolder(obj) {
+              const sortFn = (a, b) => {
+                a = a.toUpperCase();
+                b = b.toUpperCase();
+                if (a < b) return -1;
+                if (a > b) return 1;
+                return 0;
+              }
+              obj.folders.forEach(sortFolder);
+              obj.folders.sort((a, b) => sortFn(a.name, b.name));
+              obj.files.sort(sortFn);
+            }
+            zip.forEach((path, file) => {
+              const fnIdx = path.lastIndexOf("/") + 1;
+              const folderName = path.substring(0, fnIdx);
+              const fileName = path.substring(fnIdx);
+              const folder = populateFolder(folderName);
+
+              const { nodes } = tree;
+              const oriNonUnix = file.unixPermissions === null;
+              const unixPerm = oriNonUnix ? (file.dir ? 0x1fd : 0x1b4) : file.unixPermissions & 0b111111111;
+              if (folderName !== path) { // file
+                folder.files.push(fileName);
+                nodes[path] = newNode({ name: fileName, path, zip: file, unixPerm, oriUnixPerm: unixPerm, oriNonUnix });
+              } else { // folder, update as should be already created
+                const node = nodes[path];
+                node.zip = file;
+                node.unixPerm = unixPerm;
+                node.oriUnixPerm = unixPerm;
+                node.oriNonUnix = oriNonUnix;
+              }
+            });
+            sortFolder(tree.root);
+
+            function renderFolder(folder, parent, parentPath) {
+              function newNode(name, path, opts) {
+                const label = {
+                  toString() {
+                    const span = document.createElement("span");
+                    span.setAttribute("data-path", path);
+                    span.classList.add("unix-perm-ctl");
+                    ["u", "g", "o"].forEach((ownership, oIdx) => {
+                      ["r", "w", "x"].forEach((perm, pIdx) => {
+                        const bitPos = (2 - oIdx) * 3 + (2 - pIdx);
+                        const bitMask = 1 << bitPos;
+                        const permCtl = document.createElement("input");
+                        const node = tree.nodes[path];
+                        if (node) {
+                          permCtl.value = node.unixPerm & bitMask ? perm : "-";
+                          if (node.oriNonUnix) permCtl.classList.add("non-unix");
+                        }
+                        permCtl.classList.add("perm-btn");
+                        permCtl.setAttribute("type", "button");
+                        permCtl.setAttribute("data-ownership", ownership);
+                        permCtl.setAttribute("data-perm", perm);
+                        permCtl.setAttribute("onclick", "handleUnixPermCtl(event)");
+                        span.appendChild(permCtl);
+                      });
+                    });
+                    return `${name} ${span.outerHTML}`;
+                  }
+                };
+                return new TreeNode(label, opts);
+                //return new TreeNode(`${name} ${span.outerHTML}`, opts);
+              }
+
+              const isRoot = !parent;
+              const { name } = folder;
+              const path = isRoot ? "" : `${parentPath}${name}/`;
+              let node;
+              if (isRoot) {
+                node = root;
+              } else {
+                node = newNode(name, path, { forceParent: true });
+                parent.addChild(node);
+              }
+              folder.folders.forEach(subf => renderFolder(subf, node, path));
+              folder.files.forEach(filename => {
+                node.addChild(newNode(filename, path + filename));
+              });
+            }
+            renderFolder(tree.root);
+
+            view.setRoot(root);
+            view.reload();
+          });
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      function handleFileList(list) {
+        for (const file of list) {
+          if (["application/zip", "application/x-zip-compressed"].includes(file.type)) {
+            handleZipFile(file);
+            break;
+          }
+        }
+      }
+
+      zipDom.addEventListener("change", (e) => {
+        handleFileList(e.target.files);
+        e.preventDefault();
+      });
+      if (zipDom.files.length) handleFileList(zipDom.files);
+
+      dlDom.addEventListener("click", () => {
+        const zip = new JSZip();
+        const { name, root, nodes } = tree;
+        const promises = [];
+
+        function addEntry(path) {
+          const { zip: zipObj, unixPerm, oriUnixPerm } = nodes[path];
+          const dir = path.endsWith("/");
+          const fType = dir ? (1 << 14) : (1 << 15)
+          const unixPermissions = unixPerm === oriUnixPerm ? 0 : unixPerm | fType;
+          const opts = Object.assign({}, zipObj || {}, { dir, unixPermissions });
+          if (dir) {
+            zip.file(path, null, opts);
+          } else {
+            promises.push(zipObj.async("arraybuffer").then(data => zip.file(path, data, opts)));
+          }
+        }
+
+        function addFolder(folder, parentPath) {
+          const isRoot = parentPath === undefined;
+          const { name } = folder;
+          const path = isRoot ? "" : `${parentPath}${name}/`;
+          if (!isRoot) addEntry(path);
+          folder.folders.forEach(subf => addFolder(subf, path));
+          folder.files.forEach(filename => addEntry(path + filename));
+        }
+
+        addFolder(root);
+        Promise.all(promises).then(() => {
+          zip.generateAsync({ type: "blob", compression: "DEFLATE", platform: "UNIX" }).then((blob) => {
+            let a = window.document.createElement('a');
+            a.href = window.URL.createObjectURL(blob);
+            a.download = name || "fixed.zip";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          });
+        });
+      });
+    //})();
+	</script>
+</body>
+</html>
+
