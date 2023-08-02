@@ -421,7 +421,7 @@
         addFolder(root);
         Promise.all(promises).then(() => {
           zip.generateAsync({ type: "blob", compression: "DEFLATE", platform: "UNIX" }).then((blob) => {
-            let a = window.document.createElement('a');
+            let a = window.document.createElement("a");
             a.href = window.URL.createObjectURL(blob);
             a.download = name || "fixed.zip";
             document.body.appendChild(a);
