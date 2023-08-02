@@ -203,7 +203,9 @@
       function updateDownloadBtn() {
         const dlBtn = document.querySelector("#download");
         const modified = document.querySelector("#container .perm-btn.modified");
-        dlBtn.disabled = !modified;
+        const nonUnix = document.querySelector("#container .perm-btn.non-unix");
+        const nonUnixFile = nonUnix && (Object.values(tree.nodes).some(n => n.oriNonUnix && n.zip && !n.zip.dir));
+        dlBtn.disabled = !modified && !nonUnixFile;
       }
 
       window.handleUnixPermCtl = (e) => {
@@ -359,6 +361,8 @@
 
             view.setRoot(root);
             view.reload();
+
+            updateDownloadBtn();
           });
         };
         reader.readAsArrayBuffer(file);
