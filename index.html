@@ -106,6 +106,17 @@
       background-color: #ff0f0f;
     }
 
+    .example {
+      font-size: 0.9em;
+    }
+
+    .example .perm-btn {
+      width: auto;
+      pointer-events: none;
+      padding: 0.2em;
+      border: solid 1px #7f7f7f;
+    }
+
     .hidden {
       display: none;
     }
@@ -114,8 +125,8 @@
       height: 1em;
     }
 
-    .opts {
-      width: 50%;
+    .extra-panel {
+      width: 40%;
       min-width: 400px;
       max-width: 800px;
       margin: 0 auto;
@@ -226,7 +237,7 @@
     <input type="file" id="zip" class="hidden">
     <input type="button" id="download" value="Download Modified ZIP" disabled>
     <div class="spacer"></div>
-    <div class="auto-perm-div opts">
+    <div class="auto-perm-div extra-panel">
       <span id="auto-perm-open"><span class="icon"></span>Auto perm fixing config</span>
       &nbsp;&nbsp;&nbsp;&nbsp;
       <input type="button" id="auto-perm-clear" value="Clear">
@@ -236,11 +247,24 @@
     </div>
     <div class="spacer"></div>
     <div id="container"></div>
-    <div class="adv-opts opts">
+    <div class="adv-opts extra-panel">
       <input type="checkbox" id="no-create-folders"><label for="no-create-folders">Don't add folder entry that doesn't exist in original zip</label><br>
       <input type="checkbox" id="auto-perm-no-reset"><label for="auto-perm-no-reset">Don't reset permissions when auto perm config changed</label><br>
       <input type="checkbox" id="auto-perm-no-apply"><label for="auto-perm-no-apply">Don't apply auto perm config automatically</label>
     </div>
+    <div class="spacer"></div>
+    <div class="extra-panel">
+      <span id="color-meaning-open"><span class="icon"></span>Permission button color meaning</span><br>
+      <span id="color-meaning-example" class="example hidden">
+        <span class="perm-btn non-unix">No unix permission originally, default value applied</span>
+        <span class="perm-btn modified manual">Value manually changed, different from original/default value</span>
+        <span class="perm-btn auto-fixed">Auto config expected value, same as original/default value</span>
+        <span class="perm-btn modified auto-fixed">Auto config expected value, different from original/default value</span>
+        <span class="perm-btn auto-diff">Original/default value, but different from auto config expected value</span>
+        <span class="perm-btn modified auto-diff">Value manually changed, different from both original/default and auto config expected value</span>
+      </span>
+    </div>
+    <div class="spacer"></div>
   </main>
 
   <script>
@@ -271,6 +295,27 @@
       const noCreateFoldersDom = document.querySelector("#no-create-folders");
       const autoPermNoResetDom = document.querySelector("#auto-perm-no-reset");
       const autoPermNoApplyDom = document.querySelector("#auto-perm-no-apply");
+      const colorMeaningOpenDom = document.querySelector("#color-meaning-open");
+      const colorMeaningExampleDom = document.querySelector("#color-meaning-example");
+
+      function setupExpandable(openDom, targetDom) {
+        function updateExpandableOpenIcon() {
+          const iconDom = openDom.querySelector(".icon");
+          if (targetDom.classList.contains("hidden"))
+            iconDom.innerText = "▶";
+          else
+            iconDom.innerText = "◢";
+        }
+
+        updateExpandableOpenIcon();
+        openDom.addEventListener("click", () => {
+          targetDom.classList.toggle("hidden");
+          updateExpandableOpenIcon();
+        });
+      }
+
+      setupExpandable(autoPermOpenDom, autoPermDom);
+      setupExpandable(colorMeaningOpenDom, colorMeaningExampleDom);
 
       const root = new TreeNode("Select a ZIP file or drag one over...", { forceParent: true, icon: "🗐", expanded: false });
       const view = new TreeView(root, "#container");
@@ -546,20 +591,6 @@
             document.body.removeChild(a);
           });
         });
-      });
-
-      function updateAutoPermOpenIcon() {
-        const iconDom = autoPermOpenDom.querySelector(".icon");
-        if (autoPermDom.classList.contains("hidden"))
-          iconDom.innerText = "▶";
-        else
-          iconDom.innerText = "◢";
-      }
-
-      updateAutoPermOpenIcon();
-      autoPermOpenDom.addEventListener("click", () => {
-        autoPermDom.classList.toggle("hidden");
-        updateAutoPermOpenIcon();
       });
 
       // rule: { path/name: "<REGEX>", type: "file/dir", set: <perm>, add: <perm>, remove: <perm> }
