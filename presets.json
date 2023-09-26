@@ -1,6 +1,6 @@
 {
     "zoogie": {
         "zoogie/Kartminer7": [{"name": "^((backup|restore)_)?(JPN|EUR|USA)$", "add": 73}, {"name": "^save3ds_fuse.+", "add": 73}, {"name": "\\.sh$", "add": 73}],
-        "zoogie/seedminer": [{"name": "^bfcl$", "add": 73}, {"name": "^seedminer$", "add": 73}]
+        "zoogie/seedminer": [{"name": "^bfcl$", "add": 73}, {"name": "^seedminer$", "add": 73}, {"name": "^bfclminer$", "add": 73}]
     }
 }
